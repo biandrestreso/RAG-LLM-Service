@@ -281,7 +281,7 @@ class CustomWatsonX(WatsonX):
     def __init__(
         self,
         credentials: Dict[str, Any],
-        model_id: Optional[str] = "ibm/mpt-7b-instruct2",
+        model_id: str,
         validate_model_id: bool = True,
         project_id: Optional[str] = None,
         space_id: Optional[str] = None,
@@ -297,7 +297,7 @@ class CustomWatsonX(WatsonX):
     ) -> None:
         super().__init__(
             credentials=credentials,
-            model_id="meta-llama/llama-3-70b-instruct",
+            model_id=model_id,
             project_id=project_id,
             space_id=space_id,
             max_new_tokens=max_new_tokens,

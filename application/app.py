@@ -5,9 +5,12 @@ import sys
 import time
 from typing import List, Dict
 
+from elasticsearch.helpers.vectorstore import AsyncSparseVectorStrategy
 
 from utils import CloudObjectStorageReader, CustomWatsonX, create_sparse_vector_query_with_model, create_sparse_vector_query_with_model_and_filter
 from dotenv import load_dotenv
+
+from llama_index.llms.ibm import WatsonxLLM
 
 # Fast API
 from fastapi import FastAPI, Security, HTTPException
@@ -167,7 +170,8 @@ async def ingestDocs(request: ingestRequest, api_key: str = Security(get_api_key
     vector_store = ElasticsearchStore(
         es_client=async_es_client,
         index_name=es_index_name,
-        text_field=es_index_text_field
+        text_field=es_index_text_field,
+        retrieval_strategy=AsyncSparseVectorStrategy()
     )
 
     try:
@@ -364,7 +368,8 @@ async def queryLLM(request: queryLLMRequest, api_key: str = Security(get_api_key
     vector_store = ElasticsearchStore(
         es_client=async_es_client,
         index_name=index_name,
-        text_field=index_text_field
+        text_field=index_text_field,
+        retrieval_strategy=AsyncSparseVectorStrategy()
     )
 
     # Retrieve an index of the ingested documents in the vector store
@@ -480,7 +485,7 @@ def get_custom_watsonx(model_id, additional_kwargs):
         return custom_watsonx_cache[cache_key]
 
     # If not in the cache, create a new CustomWatsonX object and store it
-    custom_watsonx = CustomWatsonX(
+    custom_watsonx = WatsonxLLM(
         credentials=wml_credentials,
         project_id=project_id,
         model_id=model_id,

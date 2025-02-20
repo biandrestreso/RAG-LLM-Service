@@ -12,9 +12,8 @@ from typing import (
 )
 from pathlib import Path
 
-from ibm_watson_machine_learning.foundation_models.model import Model
-from ibm_watson_machine_learning.foundation_models.utils.enums import ModelTypes
-
+from ibm_watsonx_ai.foundation_models import ModelInference
+from ibm_watsonx_ai.foundation_models.utils.enums import ModelTypes
 
 from llama_index.core.readers.base import BaseReader
 from llama_index.core.schema import Document, NodeWithScore, TextNode
@@ -30,7 +29,7 @@ from llama_index.core.llms import (
 )
 from llama_index.core.callbacks import CallbackManager
 from llama_index.core.types import BaseOutputParser, PydanticProgramMode
-from llama_index.llms.watsonx import WatsonX
+from llama_index.llms.ibm import WatsonxLLM
 from llama_index.readers.file import (
     DocxReader,
     PDFReader,
@@ -271,7 +270,7 @@ class CloudObjectStorageReader(BaseReader):
 
         return wrapper
 
-class CustomWatsonX(WatsonX):
+class CustomWatsonX(WatsonxLLM):
     """
     IBM WatsonX LLM. Wrapper around the existing WatonX LLM module to provide following features:
     1. Support for dynamically updated WatsonX models. The supported models are hardcoded in original implementation and are outdated as of 2/19/24.
@@ -317,7 +316,7 @@ class CustomWatsonX(WatsonX):
                     f"Model name {model_id} not found in {supported_models}"
                 )
         self.model_id = model_id
-        self._model = Model(
+        self._model = ModelInference(
             model_id=model_id,
             credentials=credentials,
             project_id=project_id,
@@ -368,42 +367,43 @@ class CustomWatsonX(WatsonX):
 
 def create_sparse_vector_query_with_model(
     model_id: str, model_text_field: str = "ml.tokens"
-) -> Callable[[Dict, VectorStoreQuery], Dict]:
-    def sparse_vector_query(existing_query: Dict, query: VectorStoreQuery) -> Dict:
+) -> Callable[[Dict, Union[str, VectorStoreQuery]], Dict]:
+    def sparse_vector_query(existing_query: Dict, query: Union[str, VectorStoreQuery]) -> Dict:
         new_query = existing_query.copy()
-        if query.mode in [VectorStoreQueryMode.SPARSE, VectorStoreQueryMode.HYBRID]:
-            new_query["query"] = {
-                "text_expansion": {
-                    model_text_field: {
-                        "model_id": model_id,
-                        "model_text": query.query_str,
-                    }
+        # Handle both string queries and VectorStoreQuery objects
+        query_str = query if isinstance(query, str) else query.query_str
+        new_query["query"] = {
+            "text_expansion": {
+                model_text_field: {
+                    "model_id": model_id,
+                    "model_text": query_str,
                 }
             }
+        }
         return new_query
 
     return sparse_vector_query
 
 def create_sparse_vector_query_with_model_and_filter(
     model_id: str, model_text_field: str = "ml.tokens", filters: Optional[List[Dict]] = None
-) -> Callable[[Dict, VectorStoreQuery], Dict]:
-    def sparse_vector_query(existing_query: Dict, query: VectorStoreQuery) -> Dict:
+) -> Callable[[Dict, Union[str, VectorStoreQuery]], Dict]:
+    def sparse_vector_query(existing_query: Dict, query: Union[str, VectorStoreQuery]) -> Dict:
         new_query = existing_query.copy()
-        if query.mode in [VectorStoreQueryMode.SPARSE, VectorStoreQueryMode.HYBRID]:
-            new_query["query"] = {
-                "bool": {
-                    "must": {
-                        "text_expansion": {
-                            model_text_field: {
-                                "model_id": model_id,
-                                "model_text": query.query_str,
-                            }
-                        } 
-                    },
-                    "filter": [_to_elasticsearch_filter(filters)],
-                }
+        # Handle both string queries and VectorStoreQuery objects
+        query_str = query if isinstance(query, str) else query.query_str
+        new_query["query"] = {
+            "bool": {
+                "must": {
+                    "text_expansion": {
+                        model_text_field: {
+                            "model_id": model_id,
+                            "model_text": query_str,
+                        }
+                    } 
+                },
+                "filter": [_to_elasticsearch_filter(filters)],
             }
-            print(new_query)
+        }
         return new_query
     return sparse_vector_query
 

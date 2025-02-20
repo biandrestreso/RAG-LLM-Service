@@ -489,8 +489,10 @@ def get_custom_watsonx(model_id, additional_kwargs):
         credentials=wml_credentials,
         project_id=project_id,
         model_id=model_id,
+        max_new_tokens=additional_kwargs.get('max_new_tokens', 500),
+        temperature=additional_kwargs.get('temperature', 0.7),
         validate_model_id=False,
-        additional_kwargs=additional_kwargs,
+        additional_params=additional_kwargs
     )
     custom_watsonx_cache[cache_key] = custom_watsonx
     return custom_watsonx
